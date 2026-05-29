@@ -1,0 +1,24 @@
+#!/bin/sh
+# Portable clean-room leak guard (commit message).
+# Blocks a commit whose message contains a denylisted real term.
+# Pairs with .githooks/pre-commit (which guards content). Install via
+# scripts/install-hooks.sh.
+set -u
+MSGFILE="$1"
+ROOT=$(git rev-parse --show-toplevel)
+DL="$ROOT/leak-denylist.txt"
+[ -f "$DL" ] || exit 0
+
+pf=$(mktemp)
+grep -vE '^[[:space:]]*(#|$)' "$DL" > "$pf" 2>/dev/null || true
+hits=""
+[ -s "$pf" ] && hits=$(grep -inFf "$pf" "$MSGFILE" || true)
+rm -f "$pf"
+
+if [ -n "$hits" ]; then
+  echo " COMMIT BLOCKED: commit message contains DENYLISTED real terms (clean-room)."
+  printf '%s\n' "$hits" | head
+  echo " Rewrite the message without real entities/names."
+  exit 1
+fi
+exit 0

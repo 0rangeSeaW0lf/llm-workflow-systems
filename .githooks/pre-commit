@@ -1,0 +1,45 @@
+#!/bin/sh
+# Portable clean-room leak guard (commit content).
+# Blocks a commit whose added lines contain a denylisted real term, or a
+# gitleaks-detected secret.
+#
+# Denylist: leak-denylist.txt at repo root (gitignored, machine-local). It is
+# NEVER committed, because it lists the very real names it guards against.
+# Install: scripts/install-hooks.sh (sets core.hooksPath=.githooks).
+set -u
+ROOT=$(git rev-parse --show-toplevel)
+DL="$ROOT/leak-denylist.txt"
+fail=0
+
+added=$(git diff --cached -U0 --diff-filter=ACMR | grep '^+' | grep -v '^+++' || true)
+
+if [ -f "$DL" ] && [ -n "$added" ]; then
+  pf=$(mktemp)
+  grep -vE '^[[:space:]]*(#|$)' "$DL" > "$pf" 2>/dev/null || true
+  if [ -s "$pf" ]; then
+    hits=$(printf '%s\n' "$added" | grep -inFf "$pf" || true)
+    if [ -n "$hits" ]; then
+      echo "──────────────────────────────────────────────────────────────"
+      echo " COMMIT BLOCKED: staged changes contain DENYLISTED real terms."
+      echo " Clean-room rule: no real entities/names/emails in this repo."
+      echo "──────────────────────────────────────────────────────────────"
+      printf '%s\n' "$hits" | head -20
+      echo " Fix the content, or tune $DL if this is a false positive."
+      fail=1
+    fi
+  fi
+  rm -f "$pf"
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --no-banner >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" = "1" ]; then
+    echo " COMMIT BLOCKED: gitleaks detected a secret in staged changes."
+    echo " Run: gitleaks git --staged --verbose"
+    fail=1
+  fi
+fi
+
+[ "$fail" -ne 0 ] && exit 1
+exit 0

@@ -1,0 +1,20 @@
+# Clean-room leak denylist (EXAMPLE / TEMPLATE).
+#
+# Copy this to leak-denylist.txt (gitignored) and fill it with the REAL terms to
+# block. The real file is NEVER committed, because it would itself leak the names
+# it guards against. scripts/install-hooks.sh seeds the copy for you.
+#
+# Format: one term per line. Blank lines and lines starting with # are ignored.
+# Terms are matched case-insensitively as substrings of added lines + the commit
+# message. Prefer distinctive terms; common-word terms cause false positives.
+#
+# Categories to include (replace the placeholders below with real values locally):
+#   - real portfolio-company / fund / LP / counterparty names
+#   - real deal codenames and slugs
+#   - the principal's name in all forms, and personal email domains
+#   - real bank / institution relationships
+#
+# Example placeholders (do NOT leave these; replace with your real terms):
+ExamplePortfolioCoName
+ExampleFundName
+example-personal-domain.com
