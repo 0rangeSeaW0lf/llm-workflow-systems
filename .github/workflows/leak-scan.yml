@@ -1,0 +1,59 @@
+name: leak-scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install gitleaks (OSS binary)
+        run: |
+          set -eu
+          VERSION="8.30.1"
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: gitleaks (secret scan)
+        run: gitleaks git --redact --exit-code 1 .
+
+  entity-denylist:
+    # Server-side backstop for the local clean-room hook. The entity denylist
+    # cannot be committed (it lists the real names), so CI reads it from the
+    # LEAK_DENYLIST repo secret.
+    # Unset-secret policy (this repo): WARN and skip on every event when the
+    # secret is unset. This showcase repo intentionally holds LEAK_DENYLIST
+    # unset (shipping real names into the Actions secret store would itself be a
+    # leak), and its content is abstraction-only prose. The local pre-commit
+    # hook stays the primary entity guard; the gitleaks job above is the hard
+    # CI gate. Set the secret to enable the supplementary tree/PR-metadata scan.
+    runs-on: ubuntu-latest
+    env:
+      LEAK_DENYLIST: ${{ secrets.LEAK_DENYLIST }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      HEAD_REF: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: scan tree + PR metadata against denylist
+        run: |
+          if [ -z "${LEAK_DENYLIST:-}" ]; then
+            echo "::warning::LEAK_DENYLIST secret unset; entity scan skipped (set the secret to enable)."
+            exit 0
+          fi
+          printf '%s\n' "$LEAK_DENYLIST" | grep -vE '^[[:space:]]*(#|$)' > /tmp/dl.txt || true
+          rc=0
+          if git grep -i -nF -f /tmp/dl.txt -- . ; then
+            echo "::error::denylisted term found in tracked content"; rc=1
+          fi
+          if printf '%s %s %s' "$PR_TITLE" "$PR_BODY" "$HEAD_REF" | grep -iF -f /tmp/dl.txt ; then
+            echo "::error::denylisted term found in PR title/body/branch name"; rc=1
+          fi
+          rm -f /tmp/dl.txt
+          exit $rc
