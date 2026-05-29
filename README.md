@@ -9,6 +9,8 @@ This repository collects design patterns I've converged on after running an anal
 - [`essay/systems-thinking-for-llm-skills.md`](essay/systems-thinking-for-llm-skills.md): 800-word introduction to the design problem and the three durable layers I use.
 - [`patterns/skill-template.md`](patterns/skill-template.md): a sanitized example of a domain skill with explicit entry conditions, references loaded on demand, and output guidelines.
 - [`patterns/handoff-contract.md`](patterns/handoff-contract.md): a JSON handoff contract for skill-to-skill transitions that preserves audience context and pre-applied quality layers.
+- [`patterns/handoff-persistence.md`](patterns/handoff-persistence.md): the persistence half of the handoff pattern, a sanitized registry schema, lifecycle states, and creation-anchored naming for handoffs that outlive a session.
+- [`patterns/quality-gates.md`](patterns/quality-gates.md): the illustrative gate sequence referenced in the essay, a taxonomy of one-failure-mode-per-gate checks and the enforcement patterns they take.
 
 ## Scope
 
